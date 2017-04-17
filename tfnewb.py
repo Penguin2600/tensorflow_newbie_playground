@@ -41,6 +41,13 @@ with tf.name_scope('linear_model'):
 	result=sess.run(linear_model, {x:[1,2,3,4]})
 	print(result)
 
+with tf.name_scope('mean_squared_error'):
+	y = tf.placeholder(tf.float32)
+	squared_deltas = tf.square(linear_model - y)
+	loss = tf.reduce_sum(squared_deltas)
+	error=sess.run(loss, {x:[1,2,3,4], y:[0,-1,-2,-3]})
+	print(error)
+
 
 merged_summary = tf.summary.merge_all()
 print("Writing for TensorBoard to file %s"%(tensorboard_file))
