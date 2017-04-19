@@ -79,7 +79,7 @@ class tictac(object):
             self.boards[0][play] = 1
 
 
-    def doturn(self, play=None, netvals=None):
+    def doturn(self, play=None):
         self.current_player = next(self.players)
         while play==None:
             if self.net:
@@ -88,7 +88,8 @@ class tictac(object):
                     inputs = list(self.boards[0])
                     inputs.extend(self.boards[1])
                     votes={}
-                    for idx, val in enumerate(netvals):
+                    output = self.net.serial_activate(inputs)
+                    for idx, val in enumerate(output):
                         votes[idx] = val
                     votes = sorted(votes, key=votes.get)
                     for vote in votes:
@@ -122,3 +123,53 @@ class tictac(object):
             self.winner = self.check_win()
         #print("Game Over!, {} Wins!".format(self.winner))
         return self.winner
+
+
+def eval_fitness(genomes):
+    #shall we play a game
+    
+    for g in genomes:
+        sum_error = 0.0
+        for x in range(400):
+            net = nn.create_feed_forward_phenotype(g)
+            game = tictac(net,rand=True)
+            result = game.start_game()
+            if result=='O':
+                fit=0.0
+            if result=='No One':
+                fit=1
+            if result=='X':
+                fit=1
+            sum_error += fit * 0.0025
+            # When the output matches expected for all inputs, fitness will reach
+            # its maximum value of 1.0.
+        #print(1 - sum_square_error)
+        g.fitness = sum_error
+ 
+ 
+local_dir = os.path.dirname(__file__)
+config_path = os.path.join(local_dir, 'ttconfig')
+pop = population.Population(config_path)
+pop.run(eval_fitness, 3000)
+ 
+# Log statistics.
+statistics.save_stats(pop.statistics)
+statistics.save_species_count(pop.statistics)
+statistics.save_species_fitness(pop.statistics)
+ 
+print('Number of evaluations: {0}'.format(pop.total_evaluations))
+ 
+# Show output of the most fit genome against training data.
+winner = pop.statistics.best_genome()
+print('\nBest genome:\n{!s}'.format(winner))
+print('\nOutput:')
+
+winner_net = nn.create_feed_forward_phenotype(winner)
+
+game = tictac(winner_net,rand=False)
+result = game.start_game()
+import pdb; pdb.set_trace()
+import pickle
+with open('winner.pkl', 'wb') as output:
+    pickle.dump(winner, output, 1)
+
