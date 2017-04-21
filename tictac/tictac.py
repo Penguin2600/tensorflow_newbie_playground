@@ -7,10 +7,10 @@ import random
 from neat import nn, population, statistics
 import time
  
-class tictac(object):
+class TicTac(object):
     """class implements tictac"""
     def __init__(self, net=None, rand=False):
-        super(tictac, self).__init__()
+        super(TicTac, self).__init__()
         self.boards = [[0] * 9, [0] * 9]
         self.moves_remaining = 9
         self.players = cycle(['X','O'])
@@ -18,6 +18,7 @@ class tictac(object):
         self.current_player=next(self.players)
         self.net = net
         self.rand=rand
+        self.history=[]
 
  
     def check_vector(self, iterator):
@@ -67,6 +68,7 @@ class tictac(object):
                 self.itemgetter([2, 4, 6], board)]
             for vector in vectors:
                 if self.check_vector(vector):
+                    self.history.insert(0, self.current_player)
                     return self.current_player
         if self.moves_remaining <= 0:
             return "No One"
@@ -95,7 +97,8 @@ class tictac(object):
                         if self.is_valid_play(vote):
                             play = vote
                             self.set_move(play)
-                            #print ("Net plays: {}".format(play))
+                            #record history for training
+                            self.history.append((inputs, play))
                             return
             if self.rand:
                 if self.current_player=='O':
@@ -105,7 +108,6 @@ class tictac(object):
                         if self.is_valid_play(vote):
                             play = vote
                             self.set_move(play)
-                            #print ("Rnd plays: {}".format(play))
                             return
 
 
