@@ -4,7 +4,6 @@ import os
 import string
 from itertools import cycle
 import random
-from neat import nn, population, statistics
 import time
  
 class TicTac(object):

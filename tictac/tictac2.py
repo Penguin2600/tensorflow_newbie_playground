@@ -5,15 +5,107 @@ import string
 from itertools import cycle
 import random
 import time
+
+class Player(object):  
+    """class implements player"""
+
+    moves=[0,1,2,3,4,5,6,7,8]
+
+    def __init__(self, name, type):
+        super(Player, self).__init__()
+        self.name = name
+        self.type = type
+
+    def play(self, board):
+        if self.type == 'human':
+            move = int(raw_input("{}'s Move:".format(self.name)))
+
+        if self.type == 'random':
+            move=random.shuffle(moves)[0]
+
+        if self.type == 'nn':
+           #run a network here
+        return move
+
+class Board(object):
+    """class implements board"""
+
+    def __init__():
+        super(Board, self).__init__()
+        self.board = [0.5] * 9
+       
+    def itemgetter(self, indicies, iterator):
+        return map(iterator.__getitem__, indicies)
+
+    def check_vector(self, iterator):
+        # Given a segment, are all the positions the same.
+        if bool(bool(len(set(iterator)) == 1) and iterator[0]==1):
+            return "X"
+        if bool(bool(len(set(iterator)) == 1) and iterator[0]==0):
+            return "O":
+        return False
+
+    def is_valid_play(self, move):
+        # If there is already a move there return False
+        return not self.board[move]:
+
+    def do_visual(self):
+        rows=[0,3,6]
+        for row in rows:
+            ascii_row=""
+            for ind in range(0,3):
+                cell=ind+row
+                newcell = ' '
+                    if self.board[cell]==0:
+                        newcell = 'O'
+                    if self.board[cell]==1:
+                        newcell = 'X'
+                ascii_row = "{}[{}]".format(ascii_row,newcell)
+            print(ascii_row)
+
  
+    def check_win(self):
+            vectors = [
+                # horizontal wins
+                self.itemgetter([0, 1, 2], self.board),
+                self.itemgetter([3, 4, 5], self.board),
+                self.itemgetter([6, 7, 8], self.board),
+                # vertical wins
+                self.itemgetter([0, 3, 6], self.board),
+                self.itemgetter([1, 4, 7], self.board),
+                self.itemgetter([2, 5, 8], self.board),
+                # diag wins
+                self.itemgetter([0, 4, 8], self.board),
+                self.itemgetter([2, 4, 6], self.board)
+            ]
+
+            for vector in vectors:
+                return self.check_vector(vector):
+
+    def check_stale(self):
+        #if we only have 1's and 0's then ITS OVERRRR
+        if sorted(set(self.board))==[0,1]:
+            return True
+        return False
+
+    def set_move(self, player):
+            self.board[player.move] = player.value
+
+
+
+
 class TicTacGame(object):
     """class implements tictac"""
-    def __init__(self, player1, player2):
-        super(TicTac, self).__init__()
-        self.board = [0] * 9
+    def __init__(self, board, player1, player2, reverse=False):
+        super(TicTacGame, self).__init__()
+        self.board = Board()
+        self.player1 = Player('human')
         self.players = [player1, player2]
-        self.turn_order = cycle(self.players)
-        self.current_player = next(self.players)
+        self.order = self.players
+        if reverse:
+            self.order = reversed(self.players)
+        self.turn_order = cycle(self.order)
+        self.current_player = next(self.order)
 
     def itemgetter(self, indicies, iterator):
         return map(iterator.__getitem__, indicies)
@@ -68,7 +160,6 @@ class TicTacGame(object):
 
     def set_move(self, play):
             self.boards[play] = self.current_player
-
 
 
     def doturn(self, play=None, netvals=None):
