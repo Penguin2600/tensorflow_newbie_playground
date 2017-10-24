@@ -22,7 +22,7 @@ class TicTac(object):
  
     def check_vector(self, iterator):
         # given a segment, are all the positions the same.
-        return bool(bool(len(set(iterator)) == 1) and iterator[0])
+        return bool(bool(len(set(iterator)) == 1) and iterator[0]==1)
  
     def visual(self):
         rows=[0,3,6]
