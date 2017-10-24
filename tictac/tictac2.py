@@ -23,6 +23,7 @@ class Player(object):
             while not is_valid:
                 self.move = int(input("{}'s Move:".format(self.name)))
                 is_valid = board.set_move(self.move, self.value)
+            return True
 
         if self.type == 'random':
             random.shuffle(self.rand_state)
@@ -32,10 +33,11 @@ class Player(object):
                 self.move = self.rand_state[move_index]
                 is_valid = board.set_move(self.move, self.value)
                 move_index+=1
+            return True
 
-        if self.type == 'nn':
+        if self.type == 'AI':
             #run a network here
-            return move
+            return board.set_move(self.move, self.value)
 
 class Board(object):
     """class implements board"""
@@ -113,7 +115,7 @@ class TicTacGame(object):
     """class implements tictac"""
     def __init__(self, board, player1, player2):
         super(TicTacGame, self).__init__()
-        self.board = Board()
+        self.board = board
         self.players = [player1, player2]
         self.turn_order = cycle(self.players)
         self.current_player = None
@@ -129,10 +131,10 @@ class TicTacGame(object):
             print("Game Over!, {} Wins!".format(self.current_player.name))
         else:
             print("Game Over!, No one Wins!")
-        return self.winner, self.current_player
+        return self.winner, self.current_player.name
 
 if __name__ == "__main__":
-    #Do a standard human human game.
+    #Do a standard human random game.
     p1=Player('p1', 'human', 1)
     p2=Player('p2', 'random', 0)
     board=Board()
