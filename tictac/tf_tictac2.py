@@ -21,7 +21,7 @@ write_for_tensorboard = 1 # 1 = write info for TensorBoard, 0 = don't
 tensorboard_file = './tflogdir/tftictac/1'
 
 NUM_INPUTS = 9
-NUM_HIDDEN = 9
+NUM_HIDDEN = 256
 NUM_OUTPUTS = 9
 ITTERCOUNT = 500
 
@@ -45,8 +45,9 @@ def vote_for(move):
 # play a bunch of games and remember the ones we won
 def play_games_random():
     won_games=[]
+    lost_games=[]
     with tf.name_scope('play_game'):
-        for _ in range(500):
+        for _ in range(10000):
             #generate new game
                 #Do a standard human random game.
             p1=Player('random_player1', 'random', 1)
@@ -60,23 +61,28 @@ def play_games_random():
                 localgame.board.do_visual()
                 is_valid = localgame.current_player.play(localgame.board)
                 if localgame.current_player.name=='random_player1':
-                  history.append((copy(localgame.board.board), localgame.current_player.move))
+                    last_state=copy(localgame.board.board)
+                    last_state[localgame.current_player.move]=0.5
+                    history.append((last_state, localgame.current_player.move))
                 localgame.winner = localgame.board.check_win()
             if localgame.winner:
-                print("Game Over!, {} Wins!".format(localgame.current_player.name))
+                #print("Game Over!, {} Wins!".format(localgame.current_player.name))
                 if localgame.current_player.name == 'random_player1':
                   #take winning games and build training data
                   won_games.append(history)
-                  print(history)
+                else:
+                  lost_games.append(history)
+                  #print(history)
             else:
-                print("Game Over!, No one Wins!")
+                #print("Game Over!, No one Wins!")
+                won_games.append(history)
 
-        print(len(won_games))
+        #print(len(won_games))
         for game in won_games:
             for move in game:
                 inputvals.append(move[0])
                 targetvals.append(vote_for(move[1]))
-        print(len(won_games)/float(ITTERCOUNT))
+        #print(len(won_games)/float(ITTERCOUNT))
 # play a bunch of games and remember the ones we won
 def play_human():
     won_games=[]
@@ -104,7 +110,7 @@ def play_human():
                 p1.move = max_index
                 is_valid = localgame.current_player.play(localgame.board)
                 if is_valid == False:
-                  print("Invalid Move!")
+                  print("==========\nInvalid Move!\n==========")
                   break
                 #spacial case, punish AI player for making an invalid move.
                 history.append((inputs, max_index))
@@ -129,9 +135,13 @@ def play_human():
 # play a bunch of games and remember the ones we won
 def play_games():
     won_games=[]
+    won_count=0
+    invalid_moves=0
+    tie_games=0
+    plays={}
     with tf.name_scope('play_game'):
         for _ in range(ITTERCOUNT):
-            raw_input("Press Enter to continue...")
+            #raw_input("Press Enter to continue...")
             #generate new game
                 #Do a standard human random game.
             p1=Player('ai_player', 'AI', 1)
@@ -139,7 +149,7 @@ def play_games():
             board=Board()
             localgame=TicTacGame(board, p1, p2)
             history=[]
-
+            invalid_game=False
             while localgame.winner==None:
                 localgame.current_player = next(localgame.turn_order)
                 localgame.board.do_visual()
@@ -149,35 +159,59 @@ def play_games():
                 net_plays = sess.run(results, feed_dict={x: [inputs]})
                 max_value = max(net_plays[0])
                 max_index = net_plays[0].tolist().index(max_value)
-                print(net_plays, max_index)
+                try:
+                  plays[max_index]+=1
+                except:
+                  plays[max_index]=1
                 #play whatever the AI weights highest
                 p1.move = max_index
                 is_valid = localgame.current_player.play(localgame.board)
                 if is_valid == False:
-                  print("Invalid Move!")
+                  print("==========\nInvalid Move!\n==========")
+                  invalid_moves+=1
+                  invalid_game=True
                   break
                 #spacial case, punish AI player for making an invalid move.
-                history.append((inputs, max_index))
+                if localgame.current_player.name=='ai_player':
+                    last_state=copy(localgame.board.board)
+                    last_state[localgame.current_player.move]=0.5
+                    history.append((last_state, localgame.current_player.move))
+
                 localgame.winner = localgame.board.check_win()
             if localgame.winner:
-                print("Game Over!, {} Wins!".format(localgame.current_player.name))
+                #print("Game Over!, {} Wins!".format(localgame.current_player.name))
                 if localgame.current_player.name == 'ai_player':
                   #take winning games and build training data
+                  won_count+=1
                   won_games.append(history)
+                  print(history)
             else:
-                print("Game Over!, No one Wins!")
+                #print("Game Over!, No one Wins!")
+                if not invalid_game:
+                    won_games.append(history)
+                    tie_games+=1
 
-        print("games won:",len(won_games))
+        print("games won:",won_count, (won_count/float(ITTERCOUNT))*100)
+        print("games invalid:", invalid_moves)
+        print("games tied:", tie_games)
+        print("games lost:",(ITTERCOUNT-won_count-invalid_moves-tie_games))
+        print("distribution:", plays)
+
         for game in won_games:
             for move in game:
                 inputvals.append(move[0])
                 targetvals.append(vote_for(move[1]))
-        print("won percent:", (len(won_games)/float(ITTERCOUNT))*100)
         #print(won_games, "\n============\n", inputvals, "\n============\n", targetvals)
 
 # play a bunch of games and remember the ones we won
+def mirror(value):
+    mirror=(value-1)*-1
+    return mirror
+
 def play_games_self():
     won_games=[]
+    invalid_moves=0
+    tie_games=0
     with tf.name_scope('play_game'):
         for _ in range(ITTERCOUNT):
             #generate new game
@@ -190,33 +224,40 @@ def play_games_self():
 
             while localgame.winner==None:
                 localgame.current_player = next(localgame.turn_order)
-                #localgame.board.do_visual()
+                localgame.board.do_visual()
 
                 # Get board state as flat vector for the AI
-                inputs = list(localgame.board.board)
-                net_plays = sess.run(results, feed_dict={x: [inputs]})
+                p1board = list(localgame.board.board)
+                net_plays = sess.run(results, feed_dict={x: [p1board]})
                 max_value = max(net_plays[0])
                 max_index = net_plays[0].tolist().index(max_value)
                 #print(net_plays, max_index)
                 #play whatever the AI weights highest
                 p1.move = max_index
 
+                # invert board for player two
+                p2board = p1board #[mirror(place) for place in p1board]
+                net_plays = sess.run(results, feed_dict={x: [p2board]})
+                max_value = max(net_plays[0])
+                max_index = net_plays[0].tolist().index(max_value)
+                p2.move = max_index
                 #allow second guess for not improving net
-                is_valid=False
-                while not is_valid:
-                  max_value = max(net_plays[0])
-                  p2.move = net_plays[0].tolist().index(max_value)
-                  is_valid = localgame.board.is_valid_play(p2.move)
-                  if is_valid == False:
-                    del net_plays[0][p2.move]
+                # is_valid=False
+                # while not is_valid:
+                #   max_value = max(net_plays[0])
+                #   p2.move = net_plays[0].tolist().index(max_value)
+                #   is_valid = localgame.board.is_valid_play(p2.move)
+                #   if is_valid == False:
+                #     del net_plays[0][p2.move]
 
 
                 is_valid = localgame.current_player.play(localgame.board)
                 if is_valid == False:
                   print("Invalid Move!")
+                  invalid_moves+=1
                   break
                 #spacial case, punish AI player for making an invalid move.
-                history.append((inputs, max_index))
+                history.append((p1board, max_index))
                 localgame.winner = localgame.board.check_win()
             if localgame.winner:
                 print("Game Over!, {} Wins!".format(localgame.current_player.name))
@@ -225,13 +266,18 @@ def play_games_self():
                   won_games.append(history)
             else:
                 print("Game Over!, No one Wins!")
+                tie_games+=1
 
-        print("games won:",len(won_games))
+
+
+        print("games won:",len(won_games), (len(won_games)/float(ITTERCOUNT))*100)
+        print("games invalid:", invalid_moves)
+        print("games tied:", tie_games)
+        print("games lost:",(ITTERCOUNT-len(won_games)-invalid_moves-tie_games))
         for game in won_games:
             for move in game:
                 inputvals.append(move[0])
                 targetvals.append(vote_for(move[1]))
-        print("won percent:", (len(won_games)/float(ITTERCOUNT))*100)
         #print(won_games, "\n============\n", inputvals, "\n============\n", targetvals)
 
 # Input Layer > Hidden Layer
@@ -286,7 +332,7 @@ if do_training == 1:
   sess.run(tf.global_variables_initializer())
 
   #itercount games with 9 moves each
-  memory = ITTERCOUNT*9
+  memory = ITTERCOUNT*100*9
   #play some games then study what we won, repeat
 
   #play a random game to give the machine something to study.
@@ -308,33 +354,13 @@ if do_training == 1:
 
       sess.run(train_step, feed_dict={x: inputvals, y_: targetvals})
 
-  for _ in range(30):
-
-    #remember some stuff but let trash fall out
-    inputvals = inputvals[-memory:]
-    targetvals = targetvals[-memory:]
-    print('memory depth:', len(targetvals))
-    play_games()
-
-    for i in range(500):
-        if i%100 == 0:
-          train_error = cross_entropy.eval(feed_dict={x: inputvals, y_:targetvals})
-          print("step %d, training error  %g"%(i, train_error))
-
-        if write_for_tensorboard == 1 and i%5 == 0:
-          s = sess.run(merged_summary, feed_dict={x: inputvals, y_:targetvals})
-          writer.add_summary(s, i)
-
-        sess.run(train_step, feed_dict={x: inputvals, y_: targetvals})
-    #raw_input("Press Enter to continue...")
-
-  # for _ in range(40):
+  # for _ in range(10):
 
   #   #remember some stuff but let trash fall out
   #   inputvals = inputvals[-memory:]
   #   targetvals = targetvals[-memory:]
   #   print('memory depth:', len(targetvals))
-  #   play_games_self()
+  #   play_games()
 
   #   for i in range(500):
   #       if i%100 == 0:
@@ -351,7 +377,49 @@ if do_training == 1:
   #       print("Saving neural network to %s.*"%(save_file))
   #       saver = tf.train.Saver()
   #       saver.save(sess, save_file)
-  #   #raw_input("Press Enter to continue...")
+
+  for _ in range(300):
+
+    #remember some stuff but let trash fall out
+    inputvals = inputvals[-memory:]
+    targetvals = targetvals[-memory:]
+    play_games()
+    print('memory depth:', len(targetvals))
+    for i in range(500):
+        if i%100 == 0:
+          train_error = cross_entropy.eval(feed_dict={x: inputvals, y_:targetvals})
+          print("step %d, training error  %g"%(i, train_error))
+
+        if write_for_tensorboard == 1 and i%5 == 0:
+          s = sess.run(merged_summary, feed_dict={x: inputvals, y_:targetvals})
+          writer.add_summary(s, i)
+
+        sess.run(train_step, feed_dict={x: inputvals, y_: targetvals})
+
+    if save_trained == 1:
+        print("Saving neural network to %s.*"%(save_file))
+        saver = tf.train.Saver()
+        saver.save(sess, save_file)
+    #raw_input("Press Enter to continue...")
+
+  # for _ in range(40):
+
+  #   #remember some stuff but let trash fall out
+  #   inputvals = inputvals[-memory:]
+  #   targetvals = targetvals[-memory:]
+  #   print('memory depth:', len(targetvals))
+  #   play_games_self()
+
+  #   for i in range(500):
+  #       if i%100 == 0:
+  #         train_error = cross_entropy.eval(feed_dict={x: inputvals, y_:targetvals})
+  #         print("step %d, training error  %g"%(i, train_error))
+
+        # if write_for_tensorboard == 1 and i%5 == 0:
+        #   s = sess.run(merged_summary, feed_dict={x: inputvals, y_:targetvals})
+        #   writer.add_summary(s, i)
+
+        # sess.run(train_step, feed_dict={x: inputvals, y_: targetvals})
 
 else: # if we're not training then we must be loading from file to play
 
